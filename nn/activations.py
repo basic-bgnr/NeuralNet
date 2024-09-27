@@ -14,6 +14,9 @@ class Tanh(Activation):
 
         super().__init__(tanh, tanh_prime)
 
+    def _summary(self):
+        return f"Tanh Activation"
+
 
 class Sigmoid(Activation):
     def __init__(self):
@@ -25,6 +28,9 @@ class Sigmoid(Activation):
             return s * (1 - s)
 
         super().__init__(sigmoid, sigmoid_prime)
+
+    def _summary(self):
+        return f"Sigmoid Activation"
 
 
 class Softmax(Layer):
@@ -41,6 +47,10 @@ class Softmax(Layer):
         # tmp = np.tile(self.output, n)
         # return np.dot(tmp * (np.identity(n) - np.transpose(tmp)), output_gradient)
 
+    def _summary(self):
+        return f"Softmax Activation"
+
+
 class Relu(Activation):
     def __init__(self):
         def relu(x):
@@ -54,3 +64,6 @@ class Relu(Activation):
             return xx
 
         super().__init__(relu, relu_prime)
+
+    def _summary(self):
+        return f"Relu Activation"

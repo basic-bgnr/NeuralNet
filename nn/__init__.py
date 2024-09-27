@@ -1,9 +1,9 @@
-from nn.activations import Sigmoid, Softmax, Tanh, Relu
+from nn.activations import Relu, Sigmoid, Softmax, Tanh
 from nn.convolutional import Convolutional
 from nn.dense import Dense
-from nn.losses import binary_cross_entropy, binary_cross_entropy_prime, mse, mse_prime
+from nn.losses import MSE, BinaryCrossEntropy
 from nn.model import Model
-from nn.reshape import Reshape, Flatten
+from nn.reshape import Flatten, Reshape
 
 __all__ = [
     Dense,
@@ -12,10 +12,8 @@ __all__ = [
     Softmax,
     Tanh,
     Relu,
-    mse,
-    mse_prime,
-    binary_cross_entropy,
-    binary_cross_entropy_prime,
+    BinaryCrossEntropy,
+    MSE,
     Reshape,
     Flatten,
     Model,
