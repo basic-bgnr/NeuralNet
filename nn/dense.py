@@ -33,3 +33,27 @@ class Dense(Layer):
         self.bias = np.random.randn(output_size, 1)
 
         return self.output_shape
+
+    def _initialize_cumulative_gradient(self):
+        input_size = self.input_shape[0]
+        output_size = self.output_shape[0]
+
+        self._cum_grad_weights = np.zeros((output_size, input_size))
+        self._cum_grad_bias = np.zeros((output_size, 1))
+
+    def _backward_sgd(self, output_gradient):
+        weights_gradient = np.dot(output_gradient, self.input.T)
+        bias_gradient = output_gradient
+
+        self._cum_grad_weights += weights_gradient
+        self._cum_grad_bias += bias_gradient
+
+        input_gradient = np.dot(self.weights.T, output_gradient)
+        return input_gradient
+
+    def _update_parameter_sgd(self, learning_rate, batch_size):
+
+        self.weights -= learning_rate / batch_size * self._cum_grad_weights
+        self.bias -= learning_rate / batch_size * self._cum_grad_bias
+
+        self._initialize_cumulative_gradient()

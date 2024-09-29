@@ -25,7 +25,7 @@ class Convolutional(Layer):
 
     def forward(self, input):
         self.input = input
-        self.output = np.copy(self.biases)
+        self.output = np.copy(self.bias)
         for i in range(self.depth):
             for j in range(self.input_depth):
                 self.output[i] += signal.correlate2d(
@@ -35,6 +35,7 @@ class Convolutional(Layer):
 
     def backward(self, output_gradient, learning_rate):
         kernels_gradient = np.zeros(self.kernels_shape)
+        bias_gradient = output_gradient
         input_gradient = np.zeros(self.input_shape)
 
         for i in range(self.depth):
@@ -47,11 +48,11 @@ class Convolutional(Layer):
                 )
 
         self.kernels -= learning_rate * kernels_gradient
-        self.biases -= learning_rate * output_gradient
+        self.bias -= learning_rate * bias_gradient
         return input_gradient
 
     def _summary(self):
-        return "Convolution Layer {self.input_shape} -> {self.output_shape}"
+        return f"Convolution Layer {self.input_shape} -> {self.output_shape}"
 
     def _initialize_input_shape(self, input_shape):
         (input_depth, input_height, input_width) = input_shape
@@ -71,6 +72,37 @@ class Convolutional(Layer):
         )
 
         self.kernels = np.random.randn(*self.kernels_shape) / (self.kernel_size**0.5)
-        self.biases = np.random.randn(*self.output_shape)
+        self.bias = np.random.randn(*self.output_shape)
 
         return self.output_shape
+
+    def _initialize_cumulative_gradient(self):
+
+        self._cum_grad_kernels = np.zeros(self.kernels_shape)
+        self._cum_grad_bias = np.zeros(self.output_shape)
+
+    def _backward_sgd(self, output_gradient):
+        kernels_gradient = np.zeros(self.kernels_shape)
+        bias_gradient = output_gradient
+        input_gradient = np.zeros(self.input_shape)
+
+        for i in range(self.depth):
+            for j in range(self.input_depth):
+                kernels_gradient[i, j] = signal.correlate2d(
+                    self.input[j], output_gradient[i], "valid"
+                )
+                input_gradient[j] += signal.convolve2d(
+                    output_gradient[i], self.kernels[i, j], "full"
+                )
+
+        self._cum_grad_kernels += kernels_gradient
+        self._cum_grad_bias += bias_gradient
+
+        return input_gradient
+
+    def _update_parameter_sgd(self, learning_rate, batch_size):
+
+        self.kernels -= learning_rate / batch_size * self._cum_grad_kernels
+        self.bias -= learning_rate / batch_size * self._cum_grad_bias
+
+        self._initialize_cumulative_gradient()

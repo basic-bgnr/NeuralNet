@@ -15,7 +15,7 @@ class Reshape(Layer):
         return np.reshape(output_gradient, self.input_shape)
 
     def _summary(self):
-        return "Reshape Layer ({self.input_shape}) -> {self.output_shape}"
+        return f"Reshape Layer ({self.input_shape}) -> {self.output_shape}"
 
     def _initialize_input_shape(self, input_shape):
         self.input_shape = input_shape
