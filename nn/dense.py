@@ -4,19 +4,27 @@ from .base.layer import Layer
 
 
 class Dense(Layer):
-    def __init__(self, output_size):
-        self.output_shape = (output_size,)
-        self.input_shape = None
+    def __init__(self, output_row):
+        # self.output_shape = (output_size,)
+        self.output_row = output_row
+        # self.input_shape = None
 
     def forward(self, input):
         self.input = input
-        return np.dot(self.weights, self.input) + self.bias
+        return np.matmul(self.weights, self.input) + self.bias
 
-    def backward(self, output_gradient, learning_rate):
-        weights_gradient = np.dot(output_gradient, self.input.T)
-        input_gradient = np.dot(self.weights.T, output_gradient)
-        self.weights -= learning_rate * weights_gradient
-        self.bias -= learning_rate * output_gradient
+    def backward(self, output_gradient, learning_rate, batch_size):
+        # transpose axes(row with column)
+        input_transposed = np.transpose(self.input, axes=(0, 2, 1))
+        weights_transposed = np.transpose(self.weights, axes=(0, 2, 1))
+
+        weights_gradient = np.matmul(output_gradient, input_transposed)
+        input_gradient = np.matmul(weights_transposed, output_gradient)
+
+        # axis=0 is taken so that sum is calculated along z-axis
+        self.weights -= learning_rate / batch_size * np.sum(weights_gradient, axis=0)
+        self.bias -= learning_rate / batch_size * np.sum(output_gradient, axis=0)
+
         return input_gradient
 
     def _summary(self):
@@ -25,35 +33,13 @@ class Dense(Layer):
     def _initialize_input_shape(self, input_shape):
 
         self.input_shape = input_shape
+        (batch_size, input_row, input_column) = input_shape
 
-        input_size = self.input_shape[0]
-        output_size = self.output_shape[0]
+        self.output_shape = (batch_size, self.output_row, input_column)
 
-        self.weights = np.random.randn(output_size, input_size) / (input_size**0.5)
-        self.bias = np.random.randn(output_size, 1)
+        self.weights = np.random.randn(input_column, self.output_row, input_row) / (
+            input_row**0.5
+        )
+        self.bias = np.random.randn(input_column, self.output_row, input_column)
 
         return self.output_shape
-
-    def _initialize_cumulative_gradient(self):
-        input_size = self.input_shape[0]
-        output_size = self.output_shape[0]
-
-        self._cum_grad_weights = np.zeros((output_size, input_size))
-        self._cum_grad_bias = np.zeros((output_size, 1))
-
-    def _backward_sgd(self, output_gradient):
-        weights_gradient = np.dot(output_gradient, self.input.T)
-        bias_gradient = output_gradient
-
-        self._cum_grad_weights += weights_gradient
-        self._cum_grad_bias += bias_gradient
-
-        input_gradient = np.dot(self.weights.T, output_gradient)
-        return input_gradient
-
-    def _update_parameter_sgd(self, learning_rate, batch_size):
-
-        self.weights -= learning_rate / batch_size * self._cum_grad_weights
-        self.bias -= learning_rate / batch_size * self._cum_grad_bias
-
-        self._initialize_cumulative_gradient()

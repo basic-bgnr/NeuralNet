@@ -36,16 +36,16 @@ class Sigmoid(Activation):
 class Softmax(Layer):
     def forward(self, input):
         tmp = np.exp(input)
-        self.output = tmp / np.sum(tmp)
+        self.output = tmp / np.sum(tmp, axis=1, keepdims=True)
         return self.output
 
-    def backward(self, output_gradient, learning_rate):
-        # This version is faster than the one presented in the video
-        n = np.size(self.output)
-        return np.dot((np.identity(n) - self.output.T) * self.output, output_gradient)
-        # Original formula:
-        # tmp = np.tile(self.output, n)
-        # return np.dot(tmp * (np.identity(n) - np.transpose(tmp)), output_gradient)
+    def backward(self, output_gradient, learning_rate, batch_size):
+        n = np.size(self.output) // batch_size
+        input_gradient = np.matmul(
+            (np.identity(n) - np.transpose(self.output, axes=(0, 2, 1))) * self.output,
+            output_gradient,
+        )
+        return input_gradient
 
     def _summary(self):
         return f"Softmax Activation"
