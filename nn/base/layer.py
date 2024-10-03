@@ -7,7 +7,7 @@ class Layer:
         # TODO: return output
         pass
 
-    def backward(self, output_gradient, learning_rate, batch_size):
+    def backward(self, output_gradient, learning_rate):
         # TODO: update parameters and return input gradient
         pass
 

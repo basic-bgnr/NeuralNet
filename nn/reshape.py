@@ -9,10 +9,12 @@ class Reshape(Layer):
         self.input_shape = None
 
     def forward(self, input):
-        return np.reshape(input, self.output_shape)
+        batch_size = input.shape[0]
+        return np.reshape(input, (batch_size, *self.output_shape))
 
     def backward(self, output_gradient, learning_rate):
-        return np.reshape(output_gradient, self.input_shape)
+        batch_size = output_gradient.shape[0]
+        return np.reshape(output_gradient, (batch_size, *self.input_shape))
 
     def _summary(self):
         return f"Reshape Layer ({self.input_shape}) -> {self.output_shape}"
@@ -28,10 +30,8 @@ class Flatten(Reshape):
         self.output_shape = None
 
     def _initialize_input_shape(self, input_shape):
+        (depth, row, column) = input_shape
         self.input_shape = input_shape
 
-        output_shape = 1
-        for s in self.input_shape:
-            output_shape *= s
-        self.output_shape = (output_shape, 1)
+        self.output_shape = (depth * row * column, 1)
         return self.output_shape

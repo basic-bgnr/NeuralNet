@@ -13,7 +13,8 @@ class Dense(Layer):
         self.input = input
         return np.matmul(self.weights, self.input) + self.bias
 
-    def backward(self, output_gradient, learning_rate, batch_size):
+    def backward(self, output_gradient, learning_rate):
+        batch_size = output_gradient.shape[0]
         # transpose axes(row with column)
         input_transposed = np.transpose(self.input, axes=(0, 2, 1))
         weights_transposed = np.transpose(self.weights, axes=(0, 2, 1))
@@ -33,9 +34,9 @@ class Dense(Layer):
     def _initialize_input_shape(self, input_shape):
 
         self.input_shape = input_shape
-        (batch_size, input_row, input_column) = input_shape
+        (input_row, input_column) = input_shape
 
-        self.output_shape = (batch_size, self.output_row, input_column)
+        self.output_shape = (self.output_row, input_column)
 
         self.weights = np.random.randn(input_column, self.output_row, input_row) / (
             input_row**0.5

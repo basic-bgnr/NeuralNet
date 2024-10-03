@@ -1,4 +1,5 @@
 from . import losses, optimizers
+from .dropout import Dropout
 
 
 class Model:
@@ -6,7 +7,15 @@ class Model:
         self.layers = None
         self.input_shape = None
 
+    # public function
     def predict(self, input):
+        input = input.reshape(1, *input.shape)  # add extra dimension for batch_size
+        for layer in filter(lambda layer: not isinstance(layer, Dropout), self.layers):
+            input = layer.forward(input)
+        return input
+
+    # internal function
+    def forward(self, input):
         for layer in self.layers:
             input = layer.forward(input)
         return input
@@ -23,7 +32,7 @@ class Model:
 
     def compile_for(self, input_shape):
         # input shape is reassigned batch_size to get 3d-matrix, for naive optimizer batch_size=1
-        input_shape = (self.optimizer.get_batch_size(), *input_shape)
+        # input_shape = (self.optimizer.get_batch_size(), *input_shape)
         self.input_shape = input_shape
 
         for layer in self.get_layers():

@@ -35,11 +35,17 @@ class Sigmoid(Activation):
 
 class Softmax(Layer):
     def forward(self, input):
+        rank = np.ndim(input)
+        axis = (
+            (rank - 2, rank - 1) if rank >= 2 else (0,)
+        )  # sum across plane(row, column)
         tmp = np.exp(input)
-        self.output = tmp / np.sum(tmp, axis=1, keepdims=True)
+        self.output = tmp / np.sum(tmp, axis=axis, keepdims=True)
         return self.output
 
-    def backward(self, output_gradient, learning_rate, batch_size):
+    def backward(self, output_gradient, learning_rate):
+        batch_size = output_gradient.shape[0]
+
         n = np.size(self.output) // batch_size
         input_gradient = np.matmul(
             (np.identity(n) - np.transpose(self.output, axes=(0, 2, 1))) * self.output,

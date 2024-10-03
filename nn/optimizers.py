@@ -26,8 +26,7 @@ class Naive(_Optimizer):
         epoch_error = 0.0
         for x, y in zip(x_train, y_train):
             # forward,
-            # TODO: x has to reshaped here (find alternative), iterating over x_train, 1-dimension is lost
-            output = self.model.predict(x.reshape(self.model.input_shape))
+            output = self.model.forward(x.reshape(self.model.input_shape))
 
             # error
             epoch_error += self.cost_function.loss(y, output)
@@ -53,15 +52,16 @@ class SGD(_Optimizer):
         random_indices = np.random.permutation(len(x_train))
         x_train, y_train = x_train[random_indices], y_train[random_indices]
         for start in range(0, x_train.shape[0], self.batch_size):
-            yield x_train[start : start + self.batch_size], y_train[
-                start : start + self.batch_size
-            ]
+            if start + self.batch_size <= len(x_train):  # discard irregular batch
+                yield x_train[start : start + self.batch_size], y_train[
+                    start : start + self.batch_size
+                ]
 
     def fit(self, x_train, y_train):
         epoch_error = 0
         for x_batch, y_batch in self._batchify(x_train, y_train):
 
-            output = self.model.predict(x_batch)
+            output = self.model.forward(x_batch)
 
             # error
             epoch_error += self.cost_function.loss(y_batch, output)
@@ -69,9 +69,7 @@ class SGD(_Optimizer):
             # backward
             gradient = self.cost_function.loss_prime(y_batch, output)
             for layer in reversed(self.model.get_layers()):
-                gradient = layer.backward(
-                    gradient, self.learning_rate, self.get_batch_size()
-                )
+                gradient = layer.backward(gradient, self.learning_rate)
 
             # update parameter at the end of batch
         return np.sum(epoch_error)
