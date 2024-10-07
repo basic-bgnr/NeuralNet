@@ -6,7 +6,8 @@ from nn.dropout import Dropout
 from nn.losses import MSE, CrossEntropy
 from nn.model import Model
 from nn.reshape import Flatten, Reshape
-from nn.pool import MaxPool, MeanPool
+from nn.pool import MaxPool, MinPool, AvgPool
+
 __all__ = [
     Dense,
     Convolutional,
@@ -22,5 +23,6 @@ __all__ = [
     optimizers,
     Dropout,
     MaxPool,
-    MeanPool,
+    MinPool,
+    AvgPool,
 ]
