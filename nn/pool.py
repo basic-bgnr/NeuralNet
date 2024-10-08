@@ -39,8 +39,8 @@ class Pool(Layer):
                     c + max_index % self.size,
                 )
 
-                max_row_index = max_row_index.squeeze()
-                max_column_index = max_column_index.squeeze()
+                max_row_index = max_row_index.reshape((1, -1))
+                max_column_index = max_column_index.reshape((1, -1))
                 max_channel_index = np.tile(np.arange(channel), batch_size)
                 max_batch_index = np.repeat(np.arange(batch_size), channel)
 
