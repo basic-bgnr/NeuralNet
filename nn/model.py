@@ -41,20 +41,18 @@ class Model:
     def summary(self):
         return [layer._summary() for layer in self.layers]
 
-    def train(
-        self,
-        x_train,
-        y_train,
-        epochs=1000,
-        validate_model=None,
-    ):
+    def train(self, x_train, y_train, epochs=1000, validate_model=None, verbose=False):
 
-        for e in range(epochs):
+        for epoch in range(epochs):
+            print(f"Epoch: {epoch+1}")
 
-            error = self.optimizer.fit(x_train, y_train)
+            error = self.optimizer.fit(x_train, y_train, verbose=verbose)
 
             error /= len(x_train)
-            print(f"Epoch: {e}, Error: {error}")
 
+            print(f"Error: {error}")
             if validate_model:
                 validate_model(self.predict)
+
+            # print a newlint at the end of epoch
+            print()

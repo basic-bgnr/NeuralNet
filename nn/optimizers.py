@@ -1,6 +1,7 @@
 import itertools
 
 import numpy as np
+import tqdm
 
 
 class _Optimizer:
@@ -10,7 +11,7 @@ class _Optimizer:
     def get_batch_size(self):
         pass
 
-    def fit(self, x_train, y_train):
+    def fit(self, x_train, y_train, verbose=False):
         pass
 
 
@@ -22,9 +23,11 @@ class Naive(_Optimizer):
     def get_batch_size(self):
         return 1
 
-    def fit(self, x_train, y_train):
+    def fit(self, x_train, y_train, verbose=False):
         epoch_error = 0.0
-        for x, y in zip(x_train, y_train):
+        x_y_train = zip(x_train, y_train)
+        x_y_train = tqdm.tqdm(x_y_train) if verbose else x_y_train
+        for x, y in x_y_train:
             # forward,
             output = self.model.forward(x.reshape(self.model.input_shape))
 
@@ -57,9 +60,21 @@ class SGD(_Optimizer):
                     start : start + self.batch_size
                 ]
 
-    def fit(self, x_train, y_train):
+    def fit(self, x_train, y_train, verbose=False):
         epoch_error = 0
-        for x_batch, y_batch in self._batchify(x_train, y_train):
+
+        batches = self._batchify(x_train, y_train)
+        batches = (
+            tqdm.tqdm(
+                batches,
+                desc="Processing mini-batches",
+                total=len(x_train) // self.get_batch_size(),
+            )
+            if verbose
+            else batches
+        )
+
+        for x_batch, y_batch in batches:
 
             output = self.model.forward(x_batch)
 

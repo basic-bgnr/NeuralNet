@@ -5,8 +5,8 @@ from nn.dense import Dense
 from nn.dropout import Dropout
 from nn.losses import MSE, CrossEntropy
 from nn.model import Model
+from nn.pool import AvgPool, MaxPool, MinPool
 from nn.reshape import Flatten, Reshape
-from nn.pool import MaxPool, MinPool, AvgPool
 
 __all__ = [
     Dense,
