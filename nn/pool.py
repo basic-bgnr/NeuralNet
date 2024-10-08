@@ -68,8 +68,8 @@ class Pool(Layer):
         return tensor.repeat(self.size, axis=2).repeat(self.size, axis=3)
 
     def _initialize_input_shape(self, input_shape):
-        _, _, row, column = input_shape
-        return row // self.size, column // self.size
+        (channel, row, column) = input_shape
+        return (channel, row // self.size, column // self.size)
 
 
 class MaxPool(Pool):
