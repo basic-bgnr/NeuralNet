@@ -77,7 +77,7 @@ class MaxPool(Pool):
         super().__init__(size, np.max, np.argmax)
 
     def _summary(self):
-        return f"Max Layer ({self.drop_out_ratio})%"
+        return f"Max Layer ({self.size})"
 
 
 class MinPool(Pool):
@@ -85,7 +85,7 @@ class MinPool(Pool):
         super().__init__(size, np.min, np.argmin)
 
     def _summary(self):
-        return f"MinPool Layer ({self.drop_out_ratio})%"
+        return f"MinPool Layer ({self.size})"
 
 
 class AvgPool(Pool):
@@ -96,4 +96,4 @@ class AvgPool(Pool):
         return self._resize_to_input_shape(output_gradient)
 
     def _summary(self):
-        return f"AvgPool Layer ({self.drop_out_ratio})%"
+        return f"AvgPool Layer ({self.size})"
