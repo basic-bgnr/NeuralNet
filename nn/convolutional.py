@@ -1,12 +1,19 @@
+from enum import Enum
+
 import numpy as np
 from scipy import signal
 
 from .base.layer import Layer
 
 
+class ConvolutionalMode(Enum):
+    Valid = "valid"
+    Same = "same"
+
+
 class Convolutional(Layer):
 
-    def __init__(self, kernel_size, depth):
+    def __init__(self, kernel_size, depth, mode=ConvolutionalMode.Valid):
         """
         Partially initializes convolutional layer.
         Full initialization is done my Model class after shape of input layer
@@ -23,10 +30,25 @@ class Convolutional(Layer):
         self.kernels = None
         self.bias = None
 
+        self.mode = mode
+
     def forward(self, input):
         batch_size = input.shape[0]
 
-        self.input = input
+        match self.mode:
+            case ConvolutionalMode.Valid:
+                self.input = input
+            case ConvolutionalMode.Same:
+                height_pad, width_pad = (
+                    (self.kernel_size - 1) // 2,
+                    (self.kernel_size - 1) // 2,
+                )
+                self.input = np.pad(
+                    input,
+                    ((0, 0), (0, 0), (height_pad, height_pad), (width_pad, width_pad)),
+                    mode="constant",
+                )
+
         self.output = np.zeros((batch_size, *self.output_shape))
 
         for b in range(batch_size):
@@ -55,16 +77,43 @@ class Convolutional(Layer):
 
         self.kernels -= learning_rate * np.sum(kernels_gradient, axis=0)
         self.bias -= learning_rate * np.sum(bias_gradient, axis=0)
-        return input_gradient
+
+        match self.mode:
+            case ConvolutionalMode.Valid:
+                return input_gradient
+            case ConvolutionalMode.Same:
+                _, height, width = self.input_shape
+                height_pad, width_pad = (
+                    (self.kernel_size - 1) // 2,
+                    (self.kernel_size - 1) // 2,
+                )
+                return input_gradient[
+                    :,
+                    :,
+                    height_pad : (height - height_pad),
+                    height_pad : (width - width_pad),
+                ]
 
     def _summary(self):
         return f"Convolution Layer {self.input_shape} -> {self.output_shape}"
 
     def _initialize_input_shape(self, input_shape):
-        (input_depth, input_height, input_width) = input_shape
 
-        self.input_depth = input_depth
-        self.input_shape = input_shape
+        match self.mode:
+            case ConvolutionalMode.Valid:
+                (input_depth, input_height, input_width) = input_shape
+
+                self.input_depth = input_depth
+                self.input_shape = (input_depth, input_height, input_width)
+
+            case ConvolutionalMode.Same:
+                (input_depth, input_height, input_width) = input_shape
+
+                input_height = input_height + self.kernel_size - 1
+                input_width = input_width + self.kernel_size - 1
+
+                self.input_depth = input_depth
+                self.input_shape = (input_depth, input_height, input_width)
 
         bias_shape = (
             self.depth,
