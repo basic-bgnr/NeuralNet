@@ -77,7 +77,7 @@ class MaxPool(Pool):
         super().__init__(size, np.max, np.argmax)
 
     def _summary(self):
-        return f"Max Layer ({self.size})"
+        return f"MaxPool Layer ({self.size})"
 
 
 class MinPool(Pool):
