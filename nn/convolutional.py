@@ -71,7 +71,7 @@ class Convolutional(Layer):
                     kernels_gradient[b, i, j] = signal.correlate(
                         self.input[b, j], output_gradient[b, i], "valid"
                     )
-                    input_gradient[b, j] = signal.convolve(
+                    input_gradient[b, j] += signal.convolve2d(
                         output_gradient[b, i], self.kernels[i, j], "full"
                     )
 
