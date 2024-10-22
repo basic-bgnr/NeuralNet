@@ -68,7 +68,7 @@ class Convolutional(Layer):
         for b in range(batch_size):
             for i in range(self.depth):
                 for j in range(self.input_depth):
-                    kernels_gradient[b, i, j] = signal.correlate(
+                    kernels_gradient[b, i, j] = signal.correlate2d(
                         self.input[b, j], output_gradient[b, i], "valid"
                     )
                     input_gradient[b, j] += signal.convolve2d(
