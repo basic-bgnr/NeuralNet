@@ -90,8 +90,8 @@ class Convolutional(Layer):
                 return input_gradient[
                     :,
                     :,
-                    height_pad : (height - height_pad),
-                    height_pad : (width - width_pad),
+                    height_pad:-height_pad,
+                    height_pad:-width_pad,
                 ]
 
     def _summary(self):
