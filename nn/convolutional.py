@@ -1,3 +1,4 @@
+import time
 from enum import Enum
 
 import numpy as np
@@ -126,8 +127,9 @@ class Convolutional(Layer):
             self.kernel_size,
         )
 
-        self.kernels = np.random.randn(*self.kernels_shape) / (self.kernel_size**0.5)
-        self.bias = np.random.randn(*bias_shape)
+        rng = np.random.default_rng(seed=time.time_ns())
+        self.kernels = rng.standard_normal(self.kernels_shape) / (self.kernel_size**0.5)
+        self.bias = rng.standard_normal(bias_shape)
 
         return self.output_shape
 
