@@ -49,14 +49,12 @@ class Convolutional(Layer):
                     mode="constant",
                 )
 
-        self.output = np.zeros((batch_size, *self.output_shape))
+        output = np.zeros((batch_size, *self.output_shape))
 
         for b in range(batch_size):
             for i in range(self.depth):
-                self.output[b, i] = signal.correlate(
-                    self.input[b], self.kernels[i], "valid"
-                )
-        return self.output
+                output[b, i] = signal.correlate(self.input[b], self.kernels[i], "valid")
+        return output + self.bias
 
     def backward(self, output_gradient, learning_rate):
         batch_size = output_gradient.shape[0]
