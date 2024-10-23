@@ -156,36 +156,11 @@ class FastConvolutional(Layer):
         self.mode = mode
         self.stride = 1
 
-    # def forward(self, input):
-    #     batch_size = input.shape[0]
-
-    #     match self.mode:
-    #         case ConvolutionalMode.Valid:
-    #             self.input = input
-    #         case ConvolutionalMode.Same:
-    #             height_pad, width_pad = (
-    #                 (self.kernel_size - 1) // 2,
-    #                 (self.kernel_size - 1) // 2,
-    #             )
-    #             self.input = np.pad(
-    #                 input,
-    #                 ((0, 0), (0, 0), (height_pad, height_pad), (width_pad, width_pad)),
-    #                 mode="constant",
-    #             )
-
-    #     output = np.zeros((batch_size, *self.output_shape))
-
-    #     for b in range(batch_size):
-    #         for i in range(self.depth):
-    #             output[b, i] = signal.correlate(self.input[b], self.kernels[i], "valid")
-    #     return output + self.bias
-
-    # The following is slower for forward pass (using scipy convolution is faster) than einsum
     def forward(self, input):
         batch_size = input.shape[0]
         self.input = input
 
-        _, _, filter_height, filter_width = self.kernels.shape
+        _, _, filter_height, filter_width = self.kernels_shape
 
         output_features, output_height, output_width = self.output_shape
 
@@ -206,10 +181,10 @@ class FastConvolutional(Layer):
         return output + self.bias
 
     def backward(self, output_gradient, learning_rate):
-        # W, b, X, output = conv_layer['W'], conv_layer['b'], conv_layer['X'], conv_layer['output']
-        batch_size, _, output_height, output_width = output_gradient.shape
+        batch_size = output_gradient.shape[0]
 
-        _, _, filter_height, filter_width = self.kernels.shape
+        _, input_height, input_width = self.input_shape
+        _, _, filter_height, filter_width = self.kernels_shape
 
         # # Create a padded version of the gradient for full convolution
         output_gradient_padded = np.pad(
@@ -222,19 +197,17 @@ class FastConvolutional(Layer):
             ),
             "constant",
         )
-
-        # # Calculate the gradient of the loss with respect to the input of the layer
+        # Calculate the gradient of the loss with respect to the input of the layer
         input_gradient = np.zeros((batch_size, *self.input_shape))
         # flip to perform convolution
-        rot_kernels = np.flip(self.kernels, axis=0)
-        for i in range(output_height):
-            for j in range(output_width):
+        rot_kernels = np.flip(self.kernels, axis=(2, 3))
+        for i in range(input_height):
+            for j in range(input_width):
                 start_y = i * self.stride
                 end_y = start_y + filter_height
                 start_x = j * self.stride
                 end_x = start_x + filter_width
 
-                # X[:, start_y:end_y, start_x:end_x, :] += np.einsum('ijk,lk->il', d_prev[:, i, j, :], W)
                 input_gradient[:, :, i, j] = np.einsum(
                     "bfij,fcij->bc",
                     output_gradient_padded[
@@ -246,17 +219,18 @@ class FastConvolutional(Layer):
                     rot_kernels,
                 )
 
-        # # Calculate the gradients of the weights and biases
+        # Calculate the gradients of the weights and biases
         kernels_gradient = np.zeros((batch_size, *self.kernels_shape))
         bias_gradient = output_gradient
 
-        ## perfrom cross-correlation between input and output_gradient
+        # perfrom cross-correlation between input and output_gradient
+        _, output_gradient_height, output_gradient_width = self.output_shape
         for i in range(filter_height):
             for j in range(filter_width):
                 start_y = i
-                end_y = start_y + output_height
+                end_y = start_y + output_gradient_height
                 start_x = j
-                end_x = start_x + output_width
+                end_x = start_x + output_gradient_width
 
                 kernels_gradient[:, :, :, i, j] = np.einsum(
                     "bcij, bfij -> bfc",
@@ -300,7 +274,8 @@ class FastConvolutional(Layer):
             self.kernel_size,
         )
 
-        self.kernels = np.random.randn(*self.kernels_shape) / (self.kernel_size**0.5)
-        self.bias = np.random.randn(*bias_shape)
+        rng = np.random.default_rng(seed=time.time_ns())
+        self.kernels = rng.standard_normal(self.kernels_shape) / (self.kernel_size**0.5)
+        self.bias = rng.standard_normal(bias_shape)
 
         return self.output_shape
