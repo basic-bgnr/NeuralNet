@@ -158,7 +158,19 @@ class FastConvolutional(Layer):
 
     def forward(self, input):
         batch_size = input.shape[0]
-        self.input = input
+        match self.mode:
+            case ConvolutionalMode.Valid:
+                self.input = input
+            case ConvolutionalMode.Same:
+                height_pad, width_pad = (
+                    (self.kernel_size - 1) // 2,
+                    (self.kernel_size - 1) // 2,
+                )
+                self.input = np.pad(
+                    input,
+                    ((0, 0), (0, 0), (height_pad, height_pad), (width_pad, width_pad)),
+                    mode="constant",
+                )
 
         _, _, filter_height, filter_width = self.kernels_shape
 
@@ -173,7 +185,7 @@ class FastConvolutional(Layer):
                 start_x = j * self.stride
                 end_x = start_x + filter_width
 
-                input_patches = input[:, :, start_y:end_y, start_x:end_x]
+                input_patches = self.input[:, :, start_y:end_y, start_x:end_x]
                 output[:, :, i, j] = np.einsum(
                     "bcij,fcij->bf", input_patches, self.kernels
                 )
@@ -241,7 +253,21 @@ class FastConvolutional(Layer):
         self.kernels -= learning_rate * np.sum(kernels_gradient, axis=0)
         self.bias -= learning_rate * np.sum(bias_gradient, axis=0)
 
-        return input_gradient
+        match self.mode:
+            case ConvolutionalMode.Valid:
+                return input_gradient
+            case ConvolutionalMode.Same:
+                _, height, width = self.input_shape
+                height_pad, width_pad = (
+                    (self.kernel_size - 1) // 2,
+                    (self.kernel_size - 1) // 2,
+                )
+                return input_gradient[
+                    :,
+                    :,
+                    height_pad:-height_pad,
+                    height_pad:-width_pad,
+                ]
 
     def _summary(self):
         return f"FastConvolution Layer {self.input_shape} -> {self.output_shape}"
@@ -255,15 +281,33 @@ class FastConvolutional(Layer):
 
         match self.mode:
             case ConvolutionalMode.Valid:
-                self.padding = 0
+                (input_depth, input_height, input_width) = input_shape
+
+                self.input_depth = input_depth
+                self.input_shape = (input_depth, input_height, input_width)
+                # self.padding = 0
 
             case ConvolutionalMode.Same:
-                self.padding = (self.kernel_size - 1) // 2
+                (input_depth, input_height, input_width) = input_shape
+
+                input_height = input_height + self.kernel_size - 1
+                input_width = input_width + self.kernel_size - 1
+
+                self.input_depth = input_depth
+                self.input_shape = (input_depth, input_height, input_width)
+                # self.padding = (self.kernel_size - 1)//2
+
+        # match self.mode:
+        #     case ConvolutionalMode.Valid:
+        #         self.padding = 0
+
+        #     case ConvolutionalMode.Same:
+        #         self.padding = (self.kernel_size - 1) // 2
 
         bias_shape = (
             self.depth,
-            (input_height + 2 * self.padding - self.kernel_size + 1) // self.stride,
-            (input_width + 2 * self.padding - self.kernel_size + 1) // self.stride,
+            (input_height - self.kernel_size + 1) // self.stride,
+            (input_width - self.kernel_size + 1) // self.stride,
         )
 
         self.output_shape = bias_shape
