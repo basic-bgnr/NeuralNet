@@ -128,6 +128,7 @@ class Convolutional(Layer):
         )
 
         rng = np.random.default_rng(seed=time.time_ns())
+        # rng = np.random.default_rng(seed=0)
         self.kernels = rng.standard_normal(self.kernels_shape) / (self.kernel_size**0.5)
         self.bias = rng.standard_normal(bias_shape)
 
@@ -158,19 +159,16 @@ class FastConvolutional(Layer):
 
     def forward(self, input):
         batch_size = input.shape[0]
-        match self.mode:
-            case ConvolutionalMode.Valid:
-                self.input = input
-            case ConvolutionalMode.Same:
-                height_pad, width_pad = (
-                    (self.kernel_size - 1) // 2,
-                    (self.kernel_size - 1) // 2,
-                )
-                self.input = np.pad(
-                    input,
-                    ((0, 0), (0, 0), (height_pad, height_pad), (width_pad, width_pad)),
-                    mode="constant",
-                )
+        self.input = np.pad(
+            input,
+            (
+                (0, 0),
+                (0, 0),
+                (self.padding, self.padding),
+                (self.padding, self.padding),
+            ),
+            mode="constant",
+        )
 
         _, _, filter_height, filter_width = self.kernels_shape
 
@@ -187,7 +185,10 @@ class FastConvolutional(Layer):
 
                 input_patches = self.input[:, :, start_y:end_y, start_x:end_x]
                 output[:, :, i, j] = np.einsum(
-                    "bcij,fcij->bf", input_patches, self.kernels
+                    "bcij,fcij->bf",
+                    input_patches,
+                    self.kernels,
+                    optimize=True,
                 )
 
         return output + self.bias
@@ -198,18 +199,29 @@ class FastConvolutional(Layer):
         _, input_height, input_width = self.input_shape
         _, _, filter_height, filter_width = self.kernels_shape
 
+        # height_pad and width_pad are the padding that must be subtracted
+        # when the convolution mode is Same to produce
+        # for eg: convolution.mode = same, then
+        #         input_size = 32, 32 gives output_size = 32, 32 (by padding the input see forward pass)
+        #         At backward pass,
+        #         output_gradient = 32, 32, then if full convolution is carried out by padding output_gradient
+        #         with (kernel_size-1, kernel_size-1) giving padding_output_gradient = 32+2+2, 32+2+2.
+        #         which would produce input_gradient = (32+2, 32+2) which is off by 2 so we subtract it early using
+        #         height_pad, width_pad
+
         # # Create a padded version of the gradient for full convolution
         output_gradient_padded = np.pad(
             output_gradient,
             (
                 (0, 0),
                 (0, 0),
-                (filter_height - 1, filter_height - 1),
-                (filter_width - 1, filter_width - 1),
+                (filter_height - 1 - self.padding, filter_height - 1 - self.padding),
+                (filter_width - 1 - self.padding, filter_width - 1 - self.padding),
             ),
             "constant",
         )
-        # Calculate the gradient of the loss with respect to the input of the layer
+        # Calculate the gradient of the loss with respect to the input of the layer(without padding,
+        # since it is to be returned by this function and needs to be same size before padding)
         input_gradient = np.zeros((batch_size, *self.input_shape))
         # flip to perform convolution
         rot_kernels = np.flip(self.kernels, axis=(2, 3))
@@ -219,16 +231,17 @@ class FastConvolutional(Layer):
                 end_y = start_y + filter_height
                 start_x = j * self.stride
                 end_x = start_x + filter_width
-
+                output_gradient_patch = output_gradient_padded[
+                    :,
+                    :,
+                    start_y:end_y,
+                    start_x:end_x,
+                ]
                 input_gradient[:, :, i, j] = np.einsum(
                     "bfij,fcij->bc",
-                    output_gradient_padded[
-                        :,
-                        :,
-                        start_y:end_y,
-                        start_x:end_x,
-                    ],
+                    output_gradient_patch,
                     rot_kernels,
+                    optimize=True,
                 )
 
         # Calculate the gradients of the weights and biases
@@ -244,30 +257,18 @@ class FastConvolutional(Layer):
                 start_x = j
                 end_x = start_x + output_gradient_width
 
+                input_patch = self.input[:, :, start_y:end_y, start_x:end_x]
                 kernels_gradient[:, :, :, i, j] = np.einsum(
                     "bcij, bfij -> bfc",
-                    self.input[:, :, start_y:end_y, start_x:end_x],
+                    input_patch,
                     output_gradient,
+                    optimize=True,
                 )
 
         self.kernels -= learning_rate * np.sum(kernels_gradient, axis=0)
         self.bias -= learning_rate * np.sum(bias_gradient, axis=0)
 
-        match self.mode:
-            case ConvolutionalMode.Valid:
-                return input_gradient
-            case ConvolutionalMode.Same:
-                _, height, width = self.input_shape
-                height_pad, width_pad = (
-                    (self.kernel_size - 1) // 2,
-                    (self.kernel_size - 1) // 2,
-                )
-                return input_gradient[
-                    :,
-                    :,
-                    height_pad:-height_pad,
-                    height_pad:-width_pad,
-                ]
+        return input_gradient
 
     def _summary(self):
         return f"FastConvolution Layer {self.input_shape} -> {self.output_shape}"
@@ -281,33 +282,15 @@ class FastConvolutional(Layer):
 
         match self.mode:
             case ConvolutionalMode.Valid:
-                (input_depth, input_height, input_width) = input_shape
-
-                self.input_depth = input_depth
-                self.input_shape = (input_depth, input_height, input_width)
-                # self.padding = 0
+                self.padding = 0
 
             case ConvolutionalMode.Same:
-                (input_depth, input_height, input_width) = input_shape
-
-                input_height = input_height + self.kernel_size - 1
-                input_width = input_width + self.kernel_size - 1
-
-                self.input_depth = input_depth
-                self.input_shape = (input_depth, input_height, input_width)
-                # self.padding = (self.kernel_size - 1)//2
-
-        # match self.mode:
-        #     case ConvolutionalMode.Valid:
-        #         self.padding = 0
-
-        #     case ConvolutionalMode.Same:
-        #         self.padding = (self.kernel_size - 1) // 2
+                self.padding = (self.kernel_size - 1) // 2
 
         bias_shape = (
             self.depth,
-            (input_height - self.kernel_size + 1) // self.stride,
-            (input_width - self.kernel_size + 1) // self.stride,
+            (input_height + 2 * self.padding - self.kernel_size + 1) // self.stride,
+            (input_width + 2 * self.padding - self.kernel_size + 1) // self.stride,
         )
 
         self.output_shape = bias_shape
@@ -319,6 +302,7 @@ class FastConvolutional(Layer):
         )
 
         rng = np.random.default_rng(seed=time.time_ns())
+        # rng = np.random.default_rng(seed=0)
         self.kernels = rng.standard_normal(self.kernels_shape) / (self.kernel_size**0.5)
         self.bias = rng.standard_normal(bias_shape)
 
