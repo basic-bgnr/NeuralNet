@@ -61,7 +61,7 @@ class Convolutional(Layer):
         batch_size = output_gradient.shape[0]
 
         kernels_gradient = np.zeros((batch_size, *self.kernels_shape))
-        bias_gradient = output_gradient
+        bias_gradient = np.sum(output_gradient, axis=(2, 3), keepdims=True)
         input_gradient = np.zeros((batch_size, *self.input_shape))
 
         for b in range(batch_size):
@@ -114,12 +114,17 @@ class Convolutional(Layer):
                 self.input_depth = input_depth
                 self.input_shape = (input_depth, input_height, input_width)
 
-        bias_shape = (
+        self.output_shape = (
             self.depth,
             input_height - self.kernel_size + 1,
             input_width - self.kernel_size + 1,
         )
-        self.output_shape = bias_shape
+
+        bias_shape = (
+            self.depth,
+            1,
+            1,
+        )
         self.kernels_shape = (
             self.depth,
             input_depth,
@@ -246,7 +251,8 @@ class FastConvolutional(Layer):
 
         # Calculate the gradients of the weights and biases
         kernels_gradient = np.zeros((batch_size, *self.kernels_shape))
-        bias_gradient = output_gradient
+
+        bias_gradient = np.sum(output_gradient, axis=(2, 3), keepdims=True)
 
         # perfrom cross-correlation between input and output_gradient
         _, output_gradient_height, output_gradient_width = self.output_shape
@@ -287,13 +293,17 @@ class FastConvolutional(Layer):
             case ConvolutionalMode.Same:
                 self.padding = (self.kernel_size - 1) // 2
 
-        bias_shape = (
+        self.output_shape = (
             self.depth,
             (input_height + 2 * self.padding - self.kernel_size + 1) // self.stride,
             (input_width + 2 * self.padding - self.kernel_size + 1) // self.stride,
         )
 
-        self.output_shape = bias_shape
+        bias_shape = (
+            self.depth,
+            1,
+            1,
+        )
         self.kernels_shape = (
             self.depth,
             input_depth,
