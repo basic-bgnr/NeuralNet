@@ -74,8 +74,8 @@ class Convolutional(Layer):
                         output_gradient[b, i], self.kernels[i, j], "full"
                     )
 
-        self.kernels -= learning_rate * np.sum(kernels_gradient, axis=0)
-        self.bias -= learning_rate * np.sum(bias_gradient, axis=0)
+        self.kernels -= learning_rate / batch_size * np.sum(kernels_gradient, axis=0)
+        self.bias -= learning_rate / batch_size * np.sum(bias_gradient, axis=0)
 
         match self.mode:
             case ConvolutionalMode.Valid:
@@ -265,8 +265,8 @@ class FastConvolutional(Layer):
                     optimize=True,
                 )
 
-        self.kernels -= learning_rate * np.sum(kernels_gradient, axis=0)
-        self.bias -= learning_rate * np.sum(bias_gradient, axis=0)
+        self.kernels -= learning_rate / batch_size * np.sum(kernels_gradient, axis=0)
+        self.bias -= learning_rate / batch_size * np.sum(bias_gradient, axis=0)
 
         return input_gradient
 
