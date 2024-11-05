@@ -3,9 +3,9 @@ from .dropout import Dropout
 
 
 class Model:
-    def __init__(self):
-        self.layers = None
-        self.input_shape = None
+    def __init__(self, layers=None, input_shape=None):
+        self.layers = layers
+        self.input_shape = input_shape
 
     # public function
     def predict(self, input):
