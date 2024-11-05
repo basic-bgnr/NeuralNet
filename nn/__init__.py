@@ -1,5 +1,5 @@
 from nn import optimizers
-from nn.activations import Relu, Sigmoid, Softmax, Tanh
+from nn.activations import Relu, Sigmoid, Softmax, Softmax2d, Tanh
 from nn.convolutional import (Convolutional, ConvolutionalMode,
                               FastConvolutional)
 from nn.dense import Dense
@@ -16,6 +16,7 @@ __all__ = [
     ConvolutionalMode,
     Sigmoid,
     Softmax,
+    Softmax2d,
     Tanh,
     Relu,
     CrossEntropy,
