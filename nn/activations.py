@@ -36,17 +36,17 @@ class Sigmoid(Activation):
 class Softmax(Layer):
     def forward(self, input):
         rank = np.ndim(input)
-        axis = (
-            (rank - 2, rank - 1) if rank >= 2 else (0,)
-        )  # sum across plane(row, column)
+        axis = tuple(
+            range(1, rank)
+        )  # sum across all axis except the first (batch dimension)
         tmp = np.exp(input)
         self.output = tmp / np.sum(tmp, axis=axis, keepdims=True)
         return self.output
 
     def backward(self, output_gradient, learning_rate):
-        batch_size = output_gradient.shape[0]
+        _, width, height = output_gradient.shape
 
-        n = np.size(self.output) // batch_size
+        n = width * height
         input_gradient = np.matmul(
             (np.identity(n) - np.transpose(self.output, axes=(0, 2, 1))) * self.output,
             output_gradient,
@@ -55,6 +55,42 @@ class Softmax(Layer):
 
     def _summary(self):
         return f"Softmax Activation"
+
+
+class Softmax2d(Layer):
+    """This class works only when summation axis = z, (see overfeat paper and
+    overfeat_multidigit_lenet5.ipynb for details)"""
+    def __init__(self, axis=None):
+        super().__init__()
+        self.axis = axis
+
+    def forward(self, input):
+        tmp = np.exp(input)
+        self.output = tmp / np.sum(tmp, axis=self.axis, keepdims=True)
+        return self.output
+
+    def backward(self, output_gradient, learning_rate):
+        batch_size, channel, width, height = output_gradient.shape
+        input_gradient = np.zeros_like(output_gradient)
+        for b in range(batch_size):
+            for i in range(channel):
+                for j in range(width):
+                    for k in range(height):
+                        identity = np.zeros(channel)
+                        identity[i] = 1.0
+                        output_strip = self.output[b, :, j, k]
+                        gradient_strip = output_gradient[b, :, j, k]
+                        input_gradient_element = np.sum(
+                            gradient_strip
+                            * self.output[b, i, j, k]
+                            * (identity - output_strip)
+                        )
+                        input_gradient[b, i, j, k] = input_gradient_element
+
+        return input_gradient
+
+    def _summary(self):
+        return f"Softmax2d Activation"
 
 
 class Relu(Activation):
